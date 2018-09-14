@@ -3,10 +3,11 @@ import React from 'react';
 import {Line} from 'react-chartjs-2';
 
 const Forecast = (props) => {
-    let temps = props.data.list.slice(0,20).map(data => {
+    console.log("called!!!");
+    let temps = props.data.filter((forecast) => forecast.city.id === props.id)[0].list.map(data => {
         return data.main.temp;
     });
-    let timeLabels = props.data.list.slice(0,20).map(data => {
+    let timeLabels = props.data.filter((forecast) => forecast.city.id === props.id)[0].list.map(data => {
         return new Date(data.dt*1000).toLocaleDateString() + " " + new Date(data.dt*1000).toLocaleTimeString();
     });
     let data = {

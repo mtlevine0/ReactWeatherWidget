@@ -1,76 +1,35 @@
 import React, { Component } from 'react';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-
+import { connect } from 'react-redux';
 import Forecast from './components/Forecast';
 import CityList from './components/CityList';
 
 class App extends Component {
 
-  constructor() {
-    super();
-    this.state = {
-      cities: [
-        {
-          id: 420028902,
-          name: "Columbus",
-          coord: {
-          lat: 39.9798,
-          lon: -83.0408
-          },
-          country: "US"
-        }
-      ],
-      forecasts: [
-        {
-          list: [],
-          city: {}
-        }
-      ],
-      forecast: {
-        list: [],
-        city: {}
-      },
-      zip: "",
-      id: "420028902"
-    }
+  state = {
+    zip: ""
   }
 
   componentWillMount = () => {
-    this.setState((prevState, props) => {
-      return  {
-        id: prevState.cities[0].id
-      }
-    });
-    this.fetchWeatherForecast(this.state.id);
+
   }
 
-  fetchWeatherForecast = (id) => {
-    fetch("https://api.openweathermap.org/data/2.5/forecast?id="+id+"&units=imperial&appid=fa7f586dff339cb05e9d12dbcdab5e4b")
-    .then(response => {
-      if(!response.ok) throw Error("something went wrong!") 
-      return response 
-    })
-    .then(response => response.json())
-    .then(data => this.setState({ forecast: data }));
-  }
-
-  onSearhZip = () => {
+  onAddCity = (zip) => {
+    this.props.onAddCityStarted(this.state.zip);
     fetch("https://api.openweathermap.org/data/2.5/forecast?zip="+this.state.zip+",us&units=imperial&appid=fa7f586dff339cb05e9d12dbcdab5e4b")
-    .then(response => {
-      if(!response.ok) throw Error("Something went wrong!");
-      return response 
-    })
-    .then(response => response.json())
-    .then(data => {
-      this.setState((prevState, props) => { 
-        return {        
-          cities: [...prevState.cities, data.city]
-        }
+      .then(response => {
+        if(!response.ok) throw Error(response.body);
+        return response;
+      })
+      .then(response => response.json())
+      .then(data => {
+        this.props.onAddCitySuccess({city: data.city, forecast: data});
+      })
+      .catch(error => {
+        console.log(error);
+        this.props.onAddCityFailed(error);
       });
-    }).catch((err) => {
-      console.log(err);
-    });
   }
 
   onUpdateZip = (event) => {
@@ -80,67 +39,69 @@ class App extends Component {
   }
 
   selectCity = (city) => {
-    this.fetchWeatherForecast(city.id);
-    this.setState({
-      id: city.id
-    });
+    console.log(city.id);
+    console.log(this.props.forecast);
+    this.props.onSelectCity(city.id);
   }
 
   removeCity = (index) => {
-    if(this.state.cities.length > 1) {
-      this.setState((prevState, props) => {
-        let cities = [...prevState.cities];
-        cities.splice(index, 1);
-        console.log(cities);
-        let id = prevState.id;
-        if(this.state.id === this.state.cities[index].id) {
-          if(prevState.cities.length > 1 && index !== 0) {
-            id = prevState.cities[index-1].id;
-          } else {
-            // id = cities[cities.length-1].id;
-            id = cities[index+1].id;
-
-          }
-        }
-        this.fetchWeatherForecast(id);
-        return {
-          cities: cities,
-          id: id
-        }
-      });
-    }
+    this.props.onRemoveCity(index);
   }
 
   render() {
-    const { forecast, cities, id } = this.state;
+    const isInitialized = (this.props.id !== "");
     return (
       <div className="container">
         <div className="row">
           <div className="col">
-            <Forecast data={forecast} />
+          {isInitialized ? 
+                    (<Forecast
+                    id={this.props.id}
+                    data={this.props.forecast} />) : (<div>Nothing here!</div>)
+          }
           </div>
         </div>
         <div className="row">
           <div className="col">
             <CityList
-            removeCity={this.removeCity}
-            selectCity={this.selectCity} 
-            activeCity={id} 
-            data={cities}/>
+              removeCity={this.removeCity}
+              selectCity={this.selectCity} 
+              activeCity={this.props.id} 
+              data={this.props.cities}/>
           </div>
           <div className="col">
             <input type="text"
               onChange={this.onUpdateZip}
-              value={this.state.zip} />
+              value={this.props.zip} />
             <button 
-              onClick={this.onSearhZip}>
+              onClick={this.onAddCity}>
               Add
             </button>
           </div>
         </div>
+        {this.props.isAddCityLoading ? (<div>Loading city!</div>) : ("")}
       </div>
     );
   }
 }
 
-export default App;
+const mapStateToProps = state => {
+  return {
+    cities: state.cities,
+    id: state.id,
+    forecast: state.forecast,
+    isAddCityLoading: state.isAddCityLoading,
+  };
+};
+
+const mapDispatchToProps = dispatch => {
+  return {
+    onAddCityStarted: (zip) => dispatch({type: 'ADD_CITY_STARTED', zip: zip}),
+    onAddCitySuccess: ({city, forecast}) => dispatch({type: 'ADD_CITY_SUCCESS', city: city, forecast: forecast}),
+    onAddCityFailed: (error) => dispatch({type: 'ADD_CITY_FAILED', error: error}),
+    onSelectCity: (id) => dispatch({type: "SELECT_CITY", id: id}),
+    onRemoveCity: (id) => dispatch({type: "REMOVE_CITY", index: id})
+  };
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(App);
